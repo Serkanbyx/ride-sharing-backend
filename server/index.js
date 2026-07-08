@@ -8,6 +8,8 @@ const morgan = require('morgan');
 const mongoSanitize = require('express-mongo-sanitize');
 
 const env = require('./config/env');
+const { globalLimiter } = require('./middleware/rateLimiters');
+const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -31,6 +33,8 @@ if (env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
+app.use('/api', globalLimiter);
+
 app.get('/api/health', (_req, res) => {
   res.status(200).json({
     success: true,
@@ -40,6 +44,9 @@ app.get('/api/health', (_req, res) => {
     },
   });
 });
+
+app.use(notFound);
+app.use(errorHandler);
 
 const startServer = async () => {
   httpServer.listen(env.PORT, () => {
