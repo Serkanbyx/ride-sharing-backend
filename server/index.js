@@ -10,6 +10,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const env = require('./config/env');
 const { globalLimiter } = require('./middleware/rateLimiters');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -34,6 +35,8 @@ if (env.NODE_ENV === 'development') {
 }
 
 app.use('/api', globalLimiter);
+
+app.use('/api/auth', authRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.status(200).json({
