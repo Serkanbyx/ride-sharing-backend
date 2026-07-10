@@ -45,11 +45,26 @@ const driverSchema = new mongoose.Schema(
       type: {
         type: String,
         enum: ['Point'],
+        required: true,
         default: 'Point',
       },
       coordinates: {
         type: [Number],
+        required: true,
         default: [0, 0],
+        validate: {
+          validator(value) {
+            return (
+              Array.isArray(value) &&
+              value.length === 2 &&
+              value[0] >= -180 &&
+              value[0] <= 180 &&
+              value[1] >= -90 &&
+              value[1] <= 90
+            );
+          },
+          message: 'Location coordinates must be valid [lng, lat] values',
+        },
       },
     },
     heading: {
