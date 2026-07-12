@@ -14,6 +14,7 @@ const authRoutes = require('./routes/authRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const tripRoutes = require('./routes/tripRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -22,7 +23,7 @@ app.disable('x-powered-by');
 app.use(helmet());
 app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
 
-// Stripe webhook routes mount here before JSON parser (STEP 26)
+app.use('/api/webhooks', webhookRoutes);
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
