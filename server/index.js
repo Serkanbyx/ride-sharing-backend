@@ -13,6 +13,7 @@ const { notFound, errorHandler } = require('./middleware/errorHandler');
 const authRoutes = require('./routes/authRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const tripRoutes = require('./routes/tripRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -41,6 +42,7 @@ app.use('/api', globalLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/trips', tripRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.status(200).json({

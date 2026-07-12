@@ -70,15 +70,10 @@ const rateTripValidators = [
     .withMessage('Comment cannot exceed 300 characters'),
 ];
 
-const createPaymentValidators = [
-  body('tripId').isMongoId().withMessage('Invalid trip ID'),
-];
-
 module.exports = {
   requestTripValidators,
   acceptTripValidators,
   updateTripStatusValidators,
   cancelTripValidators,
   rateTripValidators,
-  createPaymentValidators,
 };
