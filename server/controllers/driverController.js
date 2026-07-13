@@ -5,6 +5,7 @@ const {
   setDriverAvailability,
 } = require('../services/driverService');
 const { emitToTrip } = require('../sockets');
+const { updateTripEta } = require('../services/etaService');
 const { success, fail } = require('../utils/apiResponse');
 
 const getMyDriverProfile = async (req, res, next) => {
@@ -50,6 +51,12 @@ const updateLocation = async (req, res, next) => {
         lat: Number(lat),
         heading: heading !== undefined ? Number(heading) : 0,
       });
+
+      if (['accepted', 'driver_arriving'].includes(activeTrip.status)) {
+        updateTripEta(activeTrip._id).catch((error) => {
+          console.error('ETA update failed:', error.message);
+        });
+      }
     }
 
     return success(res, updatedDriver);

@@ -4,6 +4,7 @@ const env = require('../config/env');
 const User = require('../models/User');
 const { getDriverByUserId } = require('../services/driverService');
 const { registerSocketHandlers } = require('./handlers');
+const { initRedisBridge } = require('./redisBridge');
 const { setIo, emitToTrip, emitToUser, emitToDriver } = require('./emitters');
 
 let io = null;
@@ -45,6 +46,10 @@ const initSockets = (httpServer) => {
   });
 
   registerSocketHandlers(io);
+
+  initRedisBridge(io).catch((error) => {
+    console.error('Redis socket bridge failed:', error.message);
+  });
 
   io.on('connection', async (socket) => {
     const { id: userId, role } = socket.user;

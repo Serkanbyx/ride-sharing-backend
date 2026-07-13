@@ -68,6 +68,13 @@ const transitionTrip = async (tripId, newStatus, metadata = {}) => {
     ...(trip.eta != null ? { eta: trip.eta } : {}),
   });
 
+  if (newStatus === 'accepted' || newStatus === 'driver_arriving') {
+    const { updateTripEta } = require('./etaService');
+    updateTripEta(trip._id).catch((error) => {
+      console.error('ETA update failed:', error.message);
+    });
+  }
+
   return trip;
 };
 

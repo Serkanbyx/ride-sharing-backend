@@ -93,6 +93,13 @@ const registerSocketHandlers = (io) => {
             lat: Number(lat),
             heading: heading !== undefined ? Number(heading) : 0,
           });
+
+          if (['accepted', 'driver_arriving'].includes(activeTrip.status)) {
+            const { updateTripEta } = require('../services/etaService');
+            updateTripEta(activeTrip._id).catch((error) => {
+              console.error('ETA update failed:', error.message);
+            });
+          }
         }
       } catch (error) {
         socket.emit('error', { message: error.message });
