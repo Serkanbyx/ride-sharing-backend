@@ -15,6 +15,7 @@ const driverRoutes = require('./routes/driverRoutes');
 const tripRoutes = require('./routes/tripRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
+const ratingRoutes = require('./routes/ratingRoutes');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -43,6 +44,7 @@ app.use('/api', globalLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/trips', tripRoutes);
+app.use('/api/trips', ratingRoutes);
 app.use('/api/payments', paymentRoutes);
 
 app.get('/api/health', (_req, res) => {

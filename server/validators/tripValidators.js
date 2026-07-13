@@ -57,23 +57,9 @@ const cancelTripValidators = [
     .withMessage('Reason cannot exceed 200 characters'),
 ];
 
-const rateTripValidators = [
-  param('tripId').isMongoId().withMessage('Invalid trip ID'),
-  body('score')
-    .isInt({ min: 1, max: 5 })
-    .withMessage('Score must be between 1 and 5'),
-  body('comment')
-    .optional()
-    .trim()
-    .escape()
-    .isLength({ max: 300 })
-    .withMessage('Comment cannot exceed 300 characters'),
-];
-
 module.exports = {
   requestTripValidators,
   acceptTripValidators,
   updateTripStatusValidators,
   cancelTripValidators,
-  rateTripValidators,
 };
