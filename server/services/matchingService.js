@@ -66,7 +66,11 @@ const handleOfferTimeout = async (tripId) => {
     cancellationReason: 'No driver accepted within timeout',
   });
 
-  // Socket trip_timeout emission wired in STEP 29
+  const { emitToUser } = require('../sockets');
+  emitToUser(trip.passenger.toString(), 'trip_timeout', {
+    tripId: tripId.toString(),
+    message: 'No driver accepted your request in time',
+  });
 
   offerTimeouts.delete(tripId.toString());
 };

@@ -3,6 +3,8 @@ const { Server } = require('socket.io');
 const env = require('../config/env');
 const User = require('../models/User');
 const { getDriverByUserId } = require('../services/driverService');
+const { registerSocketHandlers } = require('./handlers');
+const { setIo, emitToTrip, emitToUser, emitToDriver } = require('./emitters');
 
 let io = null;
 
@@ -13,6 +15,8 @@ const initSockets = (httpServer) => {
       credentials: true,
     },
   });
+
+  setIo(io);
 
   io.use(async (socket, next) => {
     try {
@@ -40,6 +44,8 @@ const initSockets = (httpServer) => {
     }
   });
 
+  registerSocketHandlers(io);
+
   io.on('connection', async (socket) => {
     const { id: userId, role } = socket.user;
 
@@ -49,6 +55,7 @@ const initSockets = (httpServer) => {
       const driver = await getDriverByUserId(userId);
 
       if (driver) {
+        socket.driverId = driver._id.toString();
         socket.join(`driver:${driver._id}`);
       }
     }
@@ -69,6 +76,9 @@ const initSockets = (httpServer) => {
 
 module.exports = {
   initSockets,
+  emitToTrip,
+  emitToUser,
+  emitToDriver,
 };
 
 Object.defineProperty(module.exports, 'io', {

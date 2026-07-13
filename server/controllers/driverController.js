@@ -1,8 +1,10 @@
+const Trip = require('../models/Trip');
 const {
   getDriverByUserId,
   updateDriverLocation,
   setDriverAvailability,
 } = require('../services/driverService');
+const { emitToTrip } = require('../sockets');
 const { success, fail } = require('../utils/apiResponse');
 
 const getMyDriverProfile = async (req, res, next) => {
@@ -35,7 +37,20 @@ const updateLocation = async (req, res, next) => {
       heading !== undefined ? Number(heading) : 0
     );
 
-    // Socket emission wired in STEP 29
+    const activeTrip = await Trip.findOne({
+      driver: driver._id,
+      status: { $nin: ['completed', 'cancelled'] },
+    });
+
+    if (activeTrip) {
+      emitToTrip(activeTrip._id.toString(), 'driver_location_update', {
+        tripId: activeTrip._id.toString(),
+        driverId: driver._id.toString(),
+        lng: Number(lng),
+        lat: Number(lat),
+        heading: heading !== undefined ? Number(heading) : 0,
+      });
+    }
 
     return success(res, updatedDriver);
   } catch (error) {

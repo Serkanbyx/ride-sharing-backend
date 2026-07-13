@@ -60,7 +60,13 @@ const transitionTrip = async (tripId, newStatus, metadata = {}) => {
 
   await trip.save();
 
-  // Socket trip_status_change emission wired in STEP 29
+  const { emitToTrip } = require('../sockets');
+  emitToTrip(trip._id.toString(), 'trip_status_change', {
+    tripId: trip._id.toString(),
+    status: newStatus,
+    timestamp: now.toISOString(),
+    ...(trip.eta != null ? { eta: trip.eta } : {}),
+  });
 
   return trip;
 };
