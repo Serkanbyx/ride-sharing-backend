@@ -1,3 +1,4 @@
+// Trip rating validators live in ratingValidators.js (POST /api/trips/:tripId/rate)
 const { body, param } = require('express-validator');
 const { TRIP_STATUSES } = require('../utils/constants');
 

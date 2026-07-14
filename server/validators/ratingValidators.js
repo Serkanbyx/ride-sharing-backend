@@ -1,5 +1,7 @@
 const { body, param } = require('express-validator');
 
+// Covers: POST /api/trips/:tripId/rate
+
 const rateTripValidators = [
   param('tripId').isMongoId().withMessage('Invalid trip ID'),
   body('score')

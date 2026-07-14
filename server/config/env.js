@@ -32,9 +32,17 @@ const parseNumber = (key, defaultValue) => {
 
 const NODE_ENV = getEnv('NODE_ENV', 'development');
 const JWT_SECRET = requireEnv('JWT_SECRET');
+const CLIENT_URL = getEnv('CLIENT_URL', 'http://localhost:5173');
 
 if (NODE_ENV === 'production' && JWT_SECRET.length < 32) {
   throw new Error('JWT_SECRET must be at least 32 characters in production');
+}
+
+if (
+  NODE_ENV === 'production' &&
+  (!CLIENT_URL || CLIENT_URL === '*' || CLIENT_URL.includes('*'))
+) {
+  throw new Error('CLIENT_URL must be a specific origin in production');
 }
 
 const env = Object.freeze({
@@ -44,7 +52,7 @@ const env = Object.freeze({
   REDIS_URL: requireEnv('REDIS_URL'),
   JWT_SECRET,
   JWT_EXPIRES_IN: getEnv('JWT_EXPIRES_IN', '7d'),
-  CLIENT_URL: getEnv('CLIENT_URL', 'http://localhost:5173'),
+  CLIENT_URL,
   STRIPE_SECRET_KEY: requireEnv('STRIPE_SECRET_KEY'),
   STRIPE_WEBHOOK_SECRET: requireEnv('STRIPE_WEBHOOK_SECRET'),
   GOOGLE_MAPS_API_KEY: requireEnv('GOOGLE_MAPS_API_KEY'),

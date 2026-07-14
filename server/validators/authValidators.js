@@ -1,9 +1,19 @@
 const { body } = require('express-validator');
+const { forbiddenFields } = require('./sharedValidators');
 
 const phoneRegex = /^\+?[1-9]\d{7,14}$/;
 const currentYear = new Date().getFullYear();
 
+const privilegedUserFields = [
+  'role',
+  'isActive',
+  'stripeCustomerId',
+  'averageRating',
+  'totalRatings',
+];
+
 const registerValidators = [
+  ...forbiddenFields(privilegedUserFields),
   body('name')
     .trim()
     .escape()
@@ -31,6 +41,12 @@ const loginValidators = [
 ];
 
 const updateProfileValidators = [
+  ...forbiddenFields([
+    ...privilegedUserFields,
+    'email',
+    'password',
+    'avatar',
+  ]),
   body('name')
     .optional()
     .trim()
@@ -58,6 +74,7 @@ const deleteAccountValidators = [
 ];
 
 const becomeDriverValidators = [
+  ...forbiddenFields(privilegedUserFields),
   body('vehicle.make')
     .trim()
     .escape()
