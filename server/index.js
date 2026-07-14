@@ -8,8 +8,11 @@ const morgan = require('morgan');
 const mongoSanitize = require('express-mongo-sanitize');
 
 const env = require('./config/env');
+const connectDB = require('./config/db');
+const { connectRedis } = require('./config/redis');
 const { globalLimiter } = require('./middleware/rateLimiters');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const { initSockets } = require('./sockets');
 const authRoutes = require('./routes/authRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const tripRoutes = require('./routes/tripRoutes');
@@ -61,13 +64,20 @@ app.use(notFound);
 app.use(errorHandler);
 
 const startServer = async () => {
+  await connectDB();
+  await connectRedis();
+  initSockets(httpServer);
+
   httpServer.listen(env.PORT, () => {
     console.log(`Server running on port ${env.PORT}`);
   });
 };
 
 if (require.main === module) {
-  startServer();
+  startServer().catch((error) => {
+    console.error('Server startup failed:', error.message);
+    process.exit(1);
+  });
 }
 
 module.exports = { app, httpServer, startServer };
