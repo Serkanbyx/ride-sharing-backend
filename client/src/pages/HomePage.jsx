@@ -75,7 +75,7 @@ const HomePage = () => {
 
   return (
     <div className="space-y-16">
-      <section className="rounded-2xl bg-gradient-to-br from-primary to-primary-dark px-6 py-16 text-white sm:px-10">
+      <section className="rounded-2xl bg-linear-to-br from-primary to-primary-dark px-6 py-16 text-white sm:px-10">
         <div className="mx-auto max-w-3xl text-center">
           <h1 className="text-white">Get a ride in minutes</h1>
           <p className="mt-4 text-lg text-blue-100">
