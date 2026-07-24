@@ -22,3 +22,9 @@ export const DEFAULT_MAP_CENTER = {
   lat: 37.7749,
   lng: -122.4194,
 };
+
+export const FARE_DISPLAY = {
+  baseFare: 2.5,
+  perKmRate: 1.2,
+  perMinuteRate: 0.25,
+};
