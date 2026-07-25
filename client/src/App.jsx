@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router-dom';
+import ScrollToTop from './components/ScrollToTop';
 import MainLayout from './layouts/MainLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import ProtectedRoute from './components/guards/ProtectedRoute';
@@ -19,7 +20,9 @@ import NotFoundPage from './pages/NotFoundPage';
 
 const App = () => {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
 
@@ -50,8 +53,11 @@ const App = () => {
         <Route element={<DriverRoute />}>
           <Route path="/driver" element={<DriverDashboardPage />} />
         </Route>
+
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
+    </>
   );
 };
 

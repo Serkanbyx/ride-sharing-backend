@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 const currentYear = new Date().getFullYear();
 
@@ -100,7 +101,12 @@ const BecomeDriverPage = () => {
       toast.success('Driver profile created successfully');
       navigate('/driver');
     } catch (submitError) {
-      setError(submitError.message || 'Unable to create driver profile');
+      const message = getErrorMessage(
+        submitError,
+        'Unable to create driver profile'
+      );
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

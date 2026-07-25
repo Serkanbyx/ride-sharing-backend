@@ -199,9 +199,10 @@ const DashboardPage = () => {
             ))}
           </div>
         ) : (
-          <div className="card text-center text-sm text-gray-600 dark:text-gray-400">
-            No recent trips yet.
-          </div>
+          <EmptyState
+            title="No trips yet"
+            message="Your completed and past trips will appear here."
+          />
         )}
       </section>
     </div>

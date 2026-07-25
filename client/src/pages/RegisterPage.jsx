@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 const phoneRegex = /^\+?[1-9]\d{7,14}$/;
 
@@ -77,7 +79,12 @@ const RegisterPage = () => {
         password: '',
         confirmPassword: '',
       }));
-      setError(submitError.message || 'Registration failed. Please try again.');
+      const message = getErrorMessage(
+        submitError,
+        'Registration failed. Please try again.'
+      );
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

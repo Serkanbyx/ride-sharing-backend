@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -19,9 +21,14 @@ const LoginPage = () => {
     try {
       await login(email.trim(), password);
       navigate('/dashboard');
-    } catch {
+    } catch (submitError) {
       setPassword('');
-      setError('Invalid email or password');
+      const message = getErrorMessage(
+        submitError,
+        'Invalid email or password'
+      );
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

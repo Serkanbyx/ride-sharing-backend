@@ -5,6 +5,7 @@ import { MapPin, Navigation } from 'lucide-react';
 import * as tripService from '../api/tripService';
 import Spinner from '../components/Spinner';
 import { DEFAULT_MAP_CENTER } from '../utils/constants';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 const DEMO_COORD_OFFSET = 0.01;
 
@@ -111,7 +112,9 @@ const RequestRidePage = () => {
 
       navigate(`/trip/${trip._id}`);
     } catch (submitError) {
-      setError(submitError.message || 'Unable to request trip');
+      const message = getErrorMessage(submitError, 'Unable to request trip');
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
