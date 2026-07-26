@@ -5,6 +5,10 @@ const { redisClient } = require('../config/redis');
 const mapsClient = new Client({});
 
 const CACHE_TTL_SECONDS = 300;
+const EARTH_RADIUS_METERS = 6371000;
+
+// Straight-line distance underestimates real routes; scale it to approximate roads.
+const ROUTE_DISTANCE_FACTOR = 1.3;
 
 const isValidCoordinates = (lng, lat) => {
   return (
@@ -46,6 +50,70 @@ const setCachedDistance = async (cacheKey, data) => {
   }
 };
 
+const toRadians = (degrees) => (degrees * Math.PI) / 180;
+
+const getHaversineDistanceMeters = (originLng, originLat, destLng, destLat) => {
+  const deltaLat = toRadians(destLat - originLat);
+  const deltaLng = toRadians(destLng - originLng);
+
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(toRadians(originLat)) *
+      Math.cos(toRadians(destLat)) *
+      Math.sin(deltaLng / 2) ** 2;
+
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(a));
+};
+
+const estimateDistanceAndDuration = (
+  originLng,
+  originLat,
+  destLng,
+  destLat
+) => {
+  const straightLineMeters = getHaversineDistanceMeters(
+    originLng,
+    originLat,
+    destLng,
+    destLat
+  );
+  const distanceMeters = Math.round(straightLineMeters * ROUTE_DISTANCE_FACTOR);
+  const metersPerSecond = (env.FALLBACK_AVERAGE_SPEED_KMH * 1000) / 3600;
+
+  return {
+    distanceMeters,
+    durationSeconds: Math.max(60, Math.round(distanceMeters / metersPerSecond)),
+    estimated: true,
+  };
+};
+
+const fetchDistanceFromMaps = async (
+  originLng,
+  originLat,
+  destLng,
+  destLat
+) => {
+  const response = await mapsClient.distancematrix({
+    params: {
+      origins: [`${originLat},${originLng}`],
+      destinations: [`${destLat},${destLng}`],
+      key: env.GOOGLE_MAPS_API_KEY,
+    },
+  });
+
+  const element = response.data.rows?.[0]?.elements?.[0];
+
+  if (!element || element.status !== 'OK') {
+    throw new Error('Unable to calculate distance and duration for this route');
+  }
+
+  return {
+    distanceMeters: element.distance.value,
+    durationSeconds: element.duration.value,
+    estimated: false,
+  };
+};
+
 const getDistanceAndDuration = async (
   originLng,
   originLat,
@@ -67,24 +135,31 @@ const getDistanceAndDuration = async (
     return cached;
   }
 
-  const response = await mapsClient.distancematrix({
-    params: {
-      origins: [`${originLat},${originLng}`],
-      destinations: [`${destLat},${destLng}`],
-      key: env.GOOGLE_MAPS_API_KEY,
-    },
-  });
+  let result;
 
-  const element = response.data.rows?.[0]?.elements?.[0];
-
-  if (!element || element.status !== 'OK') {
-    throw new Error('Unable to calculate distance and duration for this route');
+  if (env.GOOGLE_MAPS_API_KEY) {
+    try {
+      result = await fetchDistanceFromMaps(
+        originLng,
+        originLat,
+        destLng,
+        destLat
+      );
+    } catch (error) {
+      console.warn(
+        `Distance Matrix lookup failed, using estimate: ${error.message}`
+      );
+    }
   }
 
-  const result = {
-    distanceMeters: element.distance.value,
-    durationSeconds: element.duration.value,
-  };
+  if (!result) {
+    result = estimateDistanceAndDuration(
+      originLng,
+      originLat,
+      destLng,
+      destLat
+    );
+  }
 
   await setCachedDistance(cacheKey, result);
 
@@ -131,6 +206,7 @@ const estimateTripFare = async (pickupLng, pickupLat, destLng, destLat) => {
 
 module.exports = {
   getDistanceAndDuration,
+  estimateDistanceAndDuration,
   isRushHour,
   calculateFare,
   estimateTripFare,

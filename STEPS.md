@@ -152,7 +152,8 @@ Load `dotenv` and validate all variables at startup. Export a frozen `env` objec
 | `CLIENT_URL` | Yes | `http://localhost:5173` | CORS origin (strict in production) |
 | `STRIPE_SECRET_KEY` | Yes | — | Stripe test secret key |
 | `STRIPE_WEBHOOK_SECRET` | Yes | — | From `stripe listen` or Stripe Dashboard |
-| `GOOGLE_MAPS_API_KEY` | Yes | — | Distance Matrix API enabled |
+| `GOOGLE_MAPS_API_KEY` | No | — | Distance Matrix API enabled; haversine fallback when unset |
+| `FALLBACK_AVERAGE_SPEED_KMH` | No | `30` | Speed used by the fallback duration estimate |
 | `BASE_FARE` | No | `2.50` | Base fare in USD |
 | `PER_KM_RATE` | No | `1.20` | Per kilometer rate |
 | `PER_MINUTE_RATE` | No | `0.25` | Per minute rate |
@@ -611,7 +612,8 @@ Timestamp mapping:
 
 | Function | Description |
 |----------|-------------|
-| `getDistanceAndDuration(originLng, originLat, destLng, destLat)` | Google Maps Distance Matrix API. Return `{ distanceMeters, durationSeconds }`. Throw descriptive error on API failure |
+| `getDistanceAndDuration(originLng, originLat, destLng, destLat)` | Google Maps Distance Matrix API, cached 5 min in Redis. Return `{ distanceMeters, durationSeconds, estimated }`. Fall back to `estimateDistanceAndDuration` when no key is configured or the API call fails |
+| `estimateDistanceAndDuration(originLng, originLat, destLng, destLat)` | Haversine distance × `ROUTE_DISTANCE_FACTOR` (1.3), duration from `FALLBACK_AVERAGE_SPEED_KMH`. Keeps the app usable without a Maps key |
 | `isRushHour()` | `currentHour >= RUSH_HOUR_START && currentHour < RUSH_HOUR_END` |
 | `calculateFare(distanceMeters, durationSeconds)` | Apply formula below. Return `{ estimatedFare, surgeMultiplier, distanceMeters, durationSeconds }` |
 | `estimateTripFare(pickupLng, pickupLat, destLng, destLat)` | Combine distance lookup + fare calc |
@@ -1453,32 +1455,38 @@ Sync `server/.env.example` and `client/.env.example` with all variables.
 ### MongoDB Atlas
 
 - Free tier cluster, strong DB user password
-- Network: `0.0.0.0/0` or Railway IPs
-- `MONGODB_URI` on Railway
+- Network Access: allow `0.0.0.0/0` (or restrict to Render outbound IPs if configured)
+- Set `MONGODB_URI` on Render
 
 ### Redis Cloud
 
-- Free database → `REDIS_URL` on Railway
+- Free database → set `REDIS_URL` on Render
 
-### Backend — Railway
+### Backend — Render
 
-- Root: `server/`
-- Env: all server variables, `JWT_SECRET` min 32 chars, `NODE_ENV=production`, `CLIENT_URL` = Netlify URL
-- Start: `npm start`
-- Verify `GET /api/health`
+- Service type: **Web Service** (Node)
+- Root Directory: `server/`
+- Build Command: `npm install`
+- Start Command: `npm start`
+- Health Check Path: `/api/health`
+- Env: all server variables from `.env.example`, `JWT_SECRET` min 32 chars, `NODE_ENV=production`, `CLIENT_URL` = Netlify URL
+- Optional: deploy via repo-root `render.yaml` Blueprint
+- **Note:** Free tier spins down after inactivity; first request may be cold. Socket.io works, but always-on is recommended for production demos.
+
+Verify `GET https://<your-app>.onrender.com/api/health`
 
 ### Frontend — Netlify
 
 - Base: `client/`
 - Build: `npm run build`, publish: `dist`
-- Env: `VITE_API_URL`, `VITE_SOCKET_URL`, `VITE_STRIPE_PUBLISHABLE_KEY`
+- Env: `VITE_API_URL=https://<your-app>.onrender.com/api`, `VITE_SOCKET_URL=https://<your-app>.onrender.com`, `VITE_STRIPE_PUBLISHABLE_KEY`
 - SPA redirect: `/* /index.html 200`
 
 ### Stripe Webhook (production)
 
-- Endpoint: `https://<railway-app>.up.railway.app/api/webhooks/stripe`
+- Endpoint: `https://<your-app>.onrender.com/api/webhooks/stripe`
 - Event: `payment_intent.succeeded`
-- Signing secret → `STRIPE_WEBHOOK_SECRET`
+- Signing secret → `STRIPE_WEBHOOK_SECRET` on Render
 
 ### Post-deploy verification
 

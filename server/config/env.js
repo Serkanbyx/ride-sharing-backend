@@ -55,7 +55,9 @@ const env = Object.freeze({
   CLIENT_URL,
   STRIPE_SECRET_KEY: requireEnv('STRIPE_SECRET_KEY'),
   STRIPE_WEBHOOK_SECRET: requireEnv('STRIPE_WEBHOOK_SECRET'),
-  GOOGLE_MAPS_API_KEY: requireEnv('GOOGLE_MAPS_API_KEY'),
+  // Optional: fareService falls back to haversine estimation when unset
+  GOOGLE_MAPS_API_KEY: getEnv('GOOGLE_MAPS_API_KEY', ''),
+  FALLBACK_AVERAGE_SPEED_KMH: parseNumber('FALLBACK_AVERAGE_SPEED_KMH', 30),
   BASE_FARE: parseNumber('BASE_FARE', 2.5),
   PER_KM_RATE: parseNumber('PER_KM_RATE', 1.2),
   PER_MINUTE_RATE: parseNumber('PER_MINUTE_RATE', 0.25),

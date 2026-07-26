@@ -1,28 +1,58 @@
 # RideFlow — Ride Sharing Backend
 
-RideFlow is a full-stack ride-sharing application inspired by Uber/Lyft. Passengers request trips with pickup and destination coordinates; the backend finds nearby available drivers using MongoDB geospatial queries, dispatches offers via Redis pub/sub with a 30-second timeout, and assigns the first accepting driver. Real-time updates flow through Socket.io, fares are calculated with Google Maps, payments use Stripe, and both parties can rate each other after completion.
+A real-time ride-matching system inspired by Uber/Lyft. The core of the project is the **dispatch pipeline**: when a passenger requests a trip, the backend runs a geospatial query to find the nearest available drivers, fans the offer out to the top candidates over Redis pub/sub, races them against a 30-second timeout, and awards the trip to the first driver to accept — using an atomic database operation so two drivers can never win the same ride.
 
 ![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-Cloud-DC382D?logo=redis&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-2dsphere-47A248?logo=mongodb&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-pub%2Fsub-DC382D?logo=redis&logoColor=white)
 ![Socket.io](https://img.shields.io/badge/Socket.io-real--time-010101?logo=socket.io&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![Stripe](https://img.shields.io/badge/Stripe-Payments-635BFF?logo=stripe&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss&logoColor=white)
 
-## Features
+## Core engineering
 
-- JWT authentication with passenger and driver roles
-- Geospatial driver matching with MongoDB `2dsphere` indexes
-- Redis pub/sub trip offer dispatch to top nearby drivers
-- Strict trip state machine with service-layer transitions
-- Google Maps Distance Matrix fare estimation with surge pricing
-- Stripe PaymentIntents with webhook confirmation
-- Real-time Socket.io updates (status, location, ETA, offers)
-- Two-way ratings with rolling average for drivers
-- Rate limiting, Helmet, CORS, NoSQL sanitization, and input validation
-- Responsive React frontend with role-based dashboards
+The parts of this project worth reading the source for:
+
+| Capability | How it works |
+|------------|--------------|
+| **Geospatial matching** | MongoDB `$near` queries over a `2dsphere` index on `Driver.location`, filtered to available, off-trip drivers within a configurable radius |
+| **Offer dispatch** | Trip offers published to Redis channels and bridged into Socket.io driver rooms, so dispatch survives horizontal scaling |
+| **Race-safe accept** | `findOneAndUpdate` with a `driver: null` guard — the first accept wins, losers get `offer_cancelled` instead of a corrupted trip |
+| **Timeout handling** | Unaccepted trips auto-cancel after 30s with `cancelledBy: 'system'` and notify the passenger over their private socket room |
+| **Authoritative state machine** | Every status change flows through `tripStateService`; invalid transitions are rejected and terminal states are immutable |
+| **Live trip telemetry** | Driver location, status changes, and recalculated ETAs stream to a per-trip Socket.io room joined only by verified participants |
+| **Resilient fare pricing** | Google Maps Distance Matrix with Redis caching, falling back to a haversine estimate so the system keeps working without a Maps key |
+
+## Additional features
+
+- JWT authentication with passenger and driver roles, plus a passenger-to-driver upgrade path
+- Two-way ratings after completion, with rolling averages on driver and user records
+- Stripe PaymentIntents with webhook-confirmed settlement for completed trips
+- Rate limiting, Helmet, CORS, NoSQL sanitization, and input validation across every route
+- Responsive React frontend with role-based dashboards and live trip tracking
+
+## Dispatch flow
+
+```
+passenger requests trip
+        │
+        ▼
+  estimate fare  ──────►  Distance Matrix (or haversine fallback)
+        │
+        ▼
+  $near query  ─────────►  top N available drivers within radius
+        │
+        ▼
+  Redis publish  ───────►  socket bridge  ───────►  driver:{id} rooms
+        │                                                  │
+        │                                    ┌─────────────┴─────────────┐
+        ▼                                    ▼                           ▼
+  30s timeout                          driver accepts               others notified
+        │                                    │                     (offer_cancelled)
+        ▼                                    ▼
+ auto-cancel (system)              atomic assign → trip room opens
+```
 
 ## Trip State Machine
 
@@ -156,7 +186,8 @@ RideFlow/
 | `CLIENT_URL` | No | Frontend origin for CORS (default: `http://localhost:5173`) |
 | `STRIPE_SECRET_KEY` | Yes | Stripe secret key |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret |
-| `GOOGLE_MAPS_API_KEY` | Yes | Google Maps Distance Matrix API key |
+| `GOOGLE_MAPS_API_KEY` | No | Distance Matrix API key; falls back to haversine estimation when unset |
+| `FALLBACK_AVERAGE_SPEED_KMH` | No | Average speed for fallback duration estimates (default: `30`) |
 | `BASE_FARE` | No | Base fare in USD (default: `2.50`) |
 | `PER_KM_RATE` | No | Rate per km (default: `1.20`) |
 | `PER_MINUTE_RATE` | No | Rate per minute (default: `0.25`) |
@@ -188,8 +219,11 @@ Copy `client/.env.example` to `client/.env` and fill in your values.
 - MongoDB Atlas (or local MongoDB)
 - Redis Cloud (or local Redis)
 - Stripe test keys
-- Google Maps API key (Distance Matrix API enabled)
 - [Stripe CLI](https://stripe.com/docs/stripe-cli) (for local webhook forwarding)
+
+Optional:
+
+- Google Maps API key with Distance Matrix enabled. Without it, fares and ETAs are estimated from haversine distance and `FALLBACK_AVERAGE_SPEED_KMH`, so the full trip lifecycle still works end to end.
 
 ### Installation
 
@@ -255,13 +289,37 @@ Seed drivers are placed near San Francisco (`37.7749, -122.4194`) and start as a
 
 ## Deployment
 
-See **STEP 50** in [STEPS.md](./STEPS.md) for the full pre-deploy checklist and production setup:
+See **STEP 50** in [STEPS.md](./STEPS.md) for the full pre-deploy checklist and production setup.
 
-- **Backend:** Railway (root: `server/`, start: `npm start`)
-- **Frontend:** Netlify (base: `client/`, publish: `dist`)
-- **Database:** MongoDB Atlas
-- **Cache:** Redis Cloud
-- **Webhooks:** Stripe endpoint → `https://<your-backend>/api/webhooks/stripe`
+| Component | Platform | Notes |
+|-----------|----------|-------|
+| Backend | **Render** | Web Service, root: `server/`, start: `npm start` |
+| Frontend | Netlify | Base: `client/`, publish: `dist` |
+| Database | MongoDB Atlas | `MONGODB_URI` on Render |
+| Cache | Redis Cloud | `REDIS_URL` on Render |
+| Webhooks | Stripe | `https://<your-app>.onrender.com/api/webhooks/stripe` |
+
+### Backend on Render (summary)
+
+1. Create a **Web Service** and connect your GitHub repo.
+2. Set **Root Directory** to `server`.
+3. **Build Command:** `npm install`
+4. **Start Command:** `npm start`
+5. Add all server env vars from `server/.env.example` (Atlas, Redis Cloud, Stripe, Maps, JWT, `CLIENT_URL` = Netlify URL).
+6. Optional: use the repo-root [`render.yaml`](./render.yaml) for Blueprint deploy.
+7. Verify `GET https://<your-app>.onrender.com/api/health`.
+
+**Socket.io note:** Render supports WebSockets. On the free tier, inactive services spin down and the first request may be slow; real-time features work best with a paid plan or always-on instance.
+
+### Frontend env (production)
+
+Point the client at your Render backend:
+
+```env
+VITE_API_URL=https://<your-app>.onrender.com/api
+VITE_SOCKET_URL=https://<your-app>.onrender.com
+VITE_STRIPE_PUBLISHABLE_KEY=pk_live_or_test_...
+```
 
 ## License
 
